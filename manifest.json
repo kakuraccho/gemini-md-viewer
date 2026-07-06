@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Markdown Viewer",
+  "version": "0.1.0",
+  "description": "Gemini のコードブロック内の Markdown をワンクリックでレンダリング表示するビュワー",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": ["clipboardWrite"],
+  "content_scripts": [
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": [
+        "vendor/purify.min.js",
+        "vendor/marked.min.js",
+        "vendor/highlight.min.js",
+        "content/content.js"
+      ],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gemini-md-viewer@kakur",
+      "strict_min_version": "109.0"
+    }
+  }
+}

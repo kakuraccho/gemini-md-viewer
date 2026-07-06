@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>mdviewer fixture - Gemini DOM 模擬ページ</title>
+<link rel="stylesheet" href="../content/content.css">
+<style>
+  /* Gemini 風の見た目を最低限再現 */
+  body { background: #131314; color: #e3e3e3; font-family: "Segoe UI", "Noto Sans JP", sans-serif; margin: 0; padding: 40px; }
+  .chat { max-width: 760px; margin: 0 auto; }
+  .user-msg { background: #28292c; border-radius: 20px; padding: 12px 20px; width: fit-content; margin-left: auto; margin-bottom: 24px; }
+  code-block { display: block; background: #1e1f22; border-radius: 12px; overflow: hidden; margin: 16px 0; }
+  .code-block-decoration { display: flex; align-items: center; padding: 8px 16px; background: #2d2f33; font-size: 13px; }
+  .code-block-decoration span { flex: 1; color: #c4c7c5; }
+  .code-block-decoration .buttons { display: flex; align-items: center; gap: 4px; }
+  .code-block-decoration .buttons > button.gem-copy { background: none; border: none; color: #c4c7c5; cursor: pointer; font-size: 16px; }
+  code-block pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  .bare-pre-section pre { background: #1e1f22; border-radius: 8px; padding: 16px; font-size: 13px; }
+  h2.section { margin-top: 48px; color: #8ab4f8; }
+</style>
+</head>
+<body>
+<div class="chat">
+  <div class="user-msg">現時点でのプロダクト案をmdのコードブロックで見せて。</div>
+
+  <h2 class="section">ケース1: code-block 要素 + ヘッダーツールバー(Gemini 標準構造)</h2>
+  <code-block>
+    <div class="code-block-decoration">
+      <span>Markdown</span>
+      <div class="buttons">
+        <button class="gem-copy" title="コピー(ダミー)">📋</button>
+      </div>
+    </div>
+    <pre><code># プロダクト仕様・設計案
+
+## 1. プロダクト概要
+* **コンセプト**: 「教え方(教員・授業)を変えるのではなく、教わり方(生徒・受講時の認知)を変える」
+* **目的**: 生徒が自発的に「問いの生成」「知識の接続」を行える状態を作る
+* **構成**: ソフトウェア(AI)とハードウェア(物理デバイス)のハイブリッド
+
+---
+
+## 2. システム構成と役割
+
+### ① ハードウェア(物理デバイス)
+* **役割**: スマートフォン等の誘惑から生徒を切り離す
+* **主な機能要件**:
+    * 持ち運び可能かつシンプルなUI
+    * 物理ボタンによるタイムスタンプ記録
+    * Bluetooth等によるデータ同期
+
+### ② ソフトウェア(AI・アプリケーション)
+| 機能 | 説明 |
+| --- | --- |
+| 事前仕込み | 教科・単元に応じた「問いのプロンプト」を提示 |
+| 事後振り返り | AI対話で「なぜあの瞬間気になったのか」を深掘り |
+| 可視化 | 生成した問いをマップ化し探究力を定量化 |
+
+> 「教わり方」を変えるというコンセプトが core value。
+
+```python
+def sync(device):
+    return device.timestamps
+```
+
+- [x] コンセプト定義
+- [ ] プロトタイプ実装
+</code></pre>
+  </code-block>
+
+  <h2 class="section">ケース2: ツールバーなしの code-block(フォールバック: 右上フロート)</h2>
+  <code-block>
+    <pre><code>## ロードマップ
+
+1. **Phase 1**: 紙プロトタイプでの実証
+2. **Phase 2**: ソフトウェア MVP
+3. **Phase 3**: ハードウェア試作
+
+*イタリック* と **ボールド** と `inline code` の混在テスト。
+</code></pre>
+  </code-block>
+
+  <h2 class="section">ケース3: 裸の pre(code-block 要素なし)</h2>
+  <div class="bare-pre-section">
+    <pre><code># フォールバック確認
+
+code-block カスタム要素が存在しない構造でも
+`pre` 単体にボタンが浮くことを確認する。
+
+| A | B |
+|---|---|
+| 1 | 2 |
+</code></pre>
+  </div>
+
+  <h2 class="section">ケース5: C言語のコードブロック(シンタックスハイライト確認)</h2>
+  <code-block id="c-block">
+    <div class="code-block-decoration">
+      <span>C</span>
+      <div class="buttons">
+        <button class="gem-copy" title="コピー(ダミー)">📋</button>
+      </div>
+    </div>
+    <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    int count = 42; // 変数
+    printf("Hello, World! %d\n", count);
+    return 0;
+}
+</code></pre>
+  </code-block>
+
+  <h2 class="section">ケース4: XSS サニタイズ確認</h2>
+  <code-block>
+    <div class="code-block-decoration">
+      <span>Markdown</span>
+      <div class="buttons"></div>
+    </div>
+    <pre><code># XSS テスト
+
+&lt;script&gt;alert("xss")&lt;/script&gt;
+&lt;img src=x onerror="alert('xss')"&gt;
+
+[正常なリンク](https://example.com) は残ること。
+</code></pre>
+  </code-block>
+</div>
+
+<script src="../vendor/purify.min.js"></script>
+<script src="../vendor/marked.min.js"></script>
+<script src="../vendor/highlight.min.js"></script>
+<script src="../content/content.js"></script>
+</body>
+</html>
