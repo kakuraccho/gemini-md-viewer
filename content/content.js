@@ -113,9 +113,7 @@
     style.textContent = INLINE_CSS;
     const content = document.createElement("div");
     content.className = "content";
-    content.innerHTML = libPurify.sanitize(
-      libMarked.parse(text, { gfm: true, breaks: false })
-    );
+    content.appendChild(renderMarkdownFragment(text));
     shadow.append(style, content);
     highlightIn(content);
 
@@ -450,6 +448,15 @@
     }
   }
 
+  /**
+   * Markdown をサニタイズ済みの DocumentFragment に変換する。
+   * innerHTML を使わないことで、サニタイズ漏れの余地を構文上なくす。
+   */
+  function renderMarkdownFragment(rawText) {
+    const html = libMarked.parse(rawText, { gfm: true, breaks: false });
+    return libPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true });
+  }
+
   /** rootEl 内の pre>code を highlight.js で色分けする */
   function highlightIn(rootEl) {
     if (!libHljs) return;
@@ -478,8 +485,8 @@
       modeBtn.textContent = "Markdown として表示";
     } else {
       // Markdown レンダリング表示
-      const html = libMarked.parse(rawText, { gfm: true, breaks: false });
-      content.innerHTML = libPurify.sanitize(html);
+      content.textContent = "";
+      content.appendChild(renderMarkdownFragment(rawText));
       title.textContent = "Markdown プレビュー";
       modeBtn.textContent = "コードとして表示";
     }
