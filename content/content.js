@@ -87,6 +87,70 @@
     return btn;
   }
 
+  // ---------------------------------------------------------------
+  // インライン置換ビュー: コードブロックをその場でレンダリング表示に置き換える
+  // ---------------------------------------------------------------
+  const inlineViews = new WeakMap(); // pre 要素 → 挿入した置換ビューの host
+
+  function toggleInline(pre, btn, getText) {
+    const existing = inlineViews.get(pre);
+    if (existing) {
+      // 元のコード表示に戻す
+      existing.remove();
+      pre.classList.remove("mdv-hidden");
+      inlineViews.delete(pre);
+      btn.textContent = "置換";
+      return;
+    }
+
+    const text = getText();
+    if (!text || !text.trim()) return;
+
+    const host = document.createElement("div");
+    host.className = "mdv-inline-host";
+    const shadow = host.attachShadow({ mode: "open" });
+    const style = document.createElement("style");
+    style.textContent = INLINE_CSS;
+    const content = document.createElement("div");
+    content.className = "content";
+    content.innerHTML = libPurify.sanitize(
+      libMarked.parse(text, { gfm: true, breaks: false })
+    );
+    shadow.append(style, content);
+    highlightIn(content);
+
+    pre.classList.add("mdv-hidden");
+    pre.insertAdjacentElement("afterend", host);
+    inlineViews.set(pre, host);
+    btn.textContent = "元に戻す";
+  }
+
+  function createInlineButton(getText, resolvePre) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mdv-preview-btn mdv-inline-btn";
+    btn.title = "コードブロックをレンダリング表示に置き換え(再クリックで元に戻す)";
+    btn.textContent = "置換";
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const pre = resolvePre();
+      if (pre) toggleInline(pre, btn, getText);
+    });
+    return btn;
+  }
+
+  /** モーダル用「プレビュー」+ インライン用「置換」の 2 ボタンをまとめたグループ */
+  function buildButtonGroup(getText, getLang, resolvePre) {
+    const group = document.createElement("span");
+    group.className = "mdv-btn-group";
+    group.append(
+      createPreviewButton(getText, getLang),
+      createInlineButton(getText, resolvePre)
+    );
+    return group;
+  }
+
   /** code-block 要素 1 つにボタンを注入する */
   function attachToCodeBlock(block) {
     if (block.hasAttribute(ATTACHED_ATTR)) return;
@@ -117,17 +181,23 @@
       if (toolbar) break;
     }
 
-    const btn = createPreviewButton(getText, getLang);
+    // 置換対象の pre (クリック時点で解決)
+    const resolvePre = () => {
+      const body = block.querySelector(SELECTORS.codeBody);
+      return body ? body.closest("pre") || body : null;
+    };
+
+    const group = buildButtonGroup(getText, getLang, resolvePre);
     if (toolbar) {
-      toolbar.insertBefore(btn, toolbar.firstChild);
+      toolbar.insertBefore(group, toolbar.firstChild);
     } else {
       // ツールバーが見つからない場合はブロック右上に浮かせる
-      btn.classList.add("mdv-floating");
+      group.classList.add("mdv-floating");
       const style = getComputedStyle(block);
       if (style.position === "static") {
         block.style.position = "relative";
       }
-      block.appendChild(btn);
+      block.appendChild(group);
     }
   }
 
@@ -139,17 +209,18 @@
     pre.setAttribute(ATTACHED_ATTR, "1");
 
     const getText = () => pre.textContent;
-    const btn = createPreviewButton(getText);
-    btn.classList.add("mdv-floating");
+    const group = buildButtonGroup(getText, null, () => pre);
+    group.classList.add("mdv-floating");
 
-    const wrapper = pre.parentElement;
-    if (wrapper && getComputedStyle(wrapper).position !== "static") {
-      wrapper.appendChild(btn);
-    } else {
-      if (getComputedStyle(pre).position === "static") {
-        pre.style.position = "relative";
-      }
-      pre.appendChild(btn);
+    // 置換時に pre ごと非表示にしてもボタンが残るよう、pre の外側に置く
+    const parent = pre.parentElement;
+    if (parent && getComputedStyle(parent).position !== "static") {
+      parent.appendChild(group);
+    } else if (parent) {
+      const wrap = document.createElement("div");
+      wrap.className = "mdv-pre-wrap";
+      parent.insertBefore(wrap, pre);
+      wrap.append(pre, group);
     }
   }
 
@@ -169,48 +240,8 @@
   let modalHost = null;
   let modalRefs = null;
 
-  const MODAL_CSS = `
-    :host { all: initial; }
-    * { box-sizing: border-box; }
-    .backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 2147483647;
-      font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", Meiryo, sans-serif;
-    }
-    .panel {
-      background: #1e1f22; color: #e3e3e3;
-      width: min(900px, 92vw); height: 85vh;
-      border-radius: 12px;
-      border: 1px solid #444746;
-      display: flex; flex-direction: column;
-      box-shadow: 0 8px 40px rgba(0,0,0,.5);
-      overflow: hidden;
-    }
-    .panel-header {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px;
-      border-bottom: 1px solid #444746;
-      flex: 0 0 auto;
-    }
-    .panel-title { font-size: 14px; font-weight: 600; flex: 1; color: #c4c7c5; }
-    .panel-header button {
-      background: #2d2f33; color: #e3e3e3;
-      border: 1px solid #444746; border-radius: 16px;
-      padding: 4px 14px; font-size: 12px; cursor: pointer;
-    }
-    .panel-header button:hover { background: #3c4043; }
-    .panel-header .close-btn {
-      border-radius: 50%; width: 30px; height: 30px; padding: 0;
-      font-size: 15px; line-height: 1;
-    }
-    .content {
-      flex: 1 1 auto; overflow-y: auto;
-      padding: 20px 28px 40px;
-      font-size: 15px; line-height: 1.7;
-    }
-
+  // モーダルとインライン置換ビューで共有する Markdown / ハイライトのスタイル
+  const MD_STYLE_CSS = `
     /* --- Markdown スタイル (GitHub 風・ダーク) --- */
     .content h1, .content h2, .content h3,
     .content h4, .content h5, .content h6 {
@@ -278,6 +309,61 @@
     .hljs-addition { color: #aff5b4; background: #033a16; }
     .hljs-deletion { color: #ffdcd7; background: #67060c; }
   `;
+
+  const MODAL_CSS = `
+    :host { all: initial; }
+    * { box-sizing: border-box; }
+    .backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2147483647;
+      font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", Meiryo, sans-serif;
+    }
+    .panel {
+      background: #1e1f22; color: #e3e3e3;
+      width: min(900px, 92vw); height: 85vh;
+      border-radius: 12px;
+      border: 1px solid #444746;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid #444746;
+      flex: 0 0 auto;
+    }
+    .panel-title { font-size: 14px; font-weight: 600; flex: 1; color: #c4c7c5; }
+    .panel-header button {
+      background: #2d2f33; color: #e3e3e3;
+      border: 1px solid #444746; border-radius: 16px;
+      padding: 4px 14px; font-size: 12px; cursor: pointer;
+    }
+    .panel-header button:hover { background: #3c4043; }
+    .panel-header .close-btn {
+      border-radius: 50%; width: 30px; height: 30px; padding: 0;
+      font-size: 15px; line-height: 1;
+    }
+    .content {
+      flex: 1 1 auto; overflow-y: auto;
+      padding: 20px 28px 40px;
+      font-size: 15px; line-height: 1.7;
+    }
+  ` + MD_STYLE_CSS;
+
+  // インライン置換ビュー用 (コードブロック内に埋め込むので自前で文字スタイルを持つ)
+  const INLINE_CSS = `
+    :host { all: initial; display: block; }
+    * { box-sizing: border-box; }
+    .content {
+      color: #e3e3e3;
+      font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", Meiryo, sans-serif;
+      font-size: 14.5px; line-height: 1.7;
+      padding: 4px 18px 14px;
+    }
+  ` + MD_STYLE_CSS;
 
   function buildModal() {
     modalHost = document.createElement("div");

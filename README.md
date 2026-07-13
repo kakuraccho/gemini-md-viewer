@@ -6,8 +6,10 @@
 ## 機能
 
 - Gemini の応答内の **Markdown コードブロック**(言語ラベルが「Markdown」またはラベル不明のもの)に「👁 プレビュー」ボタンを注入。C や Python など他言語のブロックには出さない
-- クリックするとオーバーレイモーダルが開き、Markdown をレンダリング表示
+- 「👁 プレビュー」をクリックするとオーバーレイモーダルが開き、Markdown をレンダリング表示
   (見出し・表・リスト・チェックボックス・引用・ネストしたコードブロック対応)
+- 「⇄ 置換」をクリックするとコードブロックがその場でレンダリング表示に置き換わる
+  (「元に戻す」の再クリックで生データ表示に復帰)
 - ストリーミング生成の途中でもクリック時点の最新テキストを表示
 - モーダル内の「Raw をコピー」ボタンで元テキストをクリップボードへ
 - 閉じる: ✕ ボタン / モーダル外クリック / Esc キー
@@ -63,6 +65,47 @@
 | `vendor/marked.min.js` | Markdown パーサ (marked v15) |
 | `vendor/purify.min.js` | サニタイザ (DOMPurify v3) |
 | `test/fixture.html` | ローカル検証用の Gemini 模擬ページ |
+
+## AMO (addons.mozilla.org) への公開手順
+
+### 1. 提出用 ZIP のビルド
+
+```sh
+npx web-ext lint    # AMO バリデータでチェック (errors: 0 であること)
+npx web-ext build   # web-ext-artifacts/gemini_markdown_viewer-x.y.z.zip を生成
+```
+
+開発用ファイル(test/ など)は `web-ext-config.mjs` の設定で自動的に除外される。
+バージョンを上げるときは `manifest.json` の `version` を更新してからビルドする。
+
+### 2. AMO へ提出
+
+1. [Firefox アカウント](https://accounts.firefox.com/)を用意し、
+   [AMO Developer Hub](https://addons.mozilla.org/developers/) にログイン
+2. 「Submit a New Add-on」→ 配布方法は **「On this site」(AMO で公開)** を選択
+3. ビルドした ZIP をアップロード → 自動バリデーションが通るのを確認
+4. **審査員向けメモ (Notes to Reviewer)** に同梱ライブラリの出典を書く(下記をコピペ可):
+
+   ```
+   Bundled third-party libraries (unmodified official minified builds):
+   - marked v15.0.12  https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js
+   - DOMPurify v3.4.11  https://cdn.jsdelivr.net/npm/dompurify@3.4.11/dist/purify.min.js
+   - highlight.js v11.11.1  https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js
+   All innerHTML assignments are sanitized with DOMPurify before insertion.
+   ```
+
+5. リスティング情報を入力(名前・概要・詳細説明・カテゴリ・スクリーンショット・ライセンス)
+6. 送信すると審査キューに入る(通常数日)。承認されると AMO で公開される
+
+### 補足
+
+- **データ収集**: 何も収集しないため、`manifest.json` で
+  `data_collection_permissions: { required: ["none"] }` を宣言済み
+  (2025年11月以降の新規提出で必須)。プライバシーポリシーの提出は不要
+- **対応バージョン**: Firefox 140+ / Firefox for Android 142+
+  (`data_collection_permissions` 対応バージョンに合わせている)
+- lint で出る `UNSAFE_VAR_ASSIGNMENT` 警告は innerHTML への代入に対するもので、
+  すべて DOMPurify でサニタイズ済み(エラーではないので提出可能)
 
 ## Gemini の DOM 構造が変わったら
 

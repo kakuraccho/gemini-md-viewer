@@ -28,10 +28,34 @@
   background: rgba(95, 99, 104, 0.7);
 }
 
+/* 「置換」ボタンはアイコンを変える */
+.mdv-inline-btn::before {
+  content: "⇄";
+}
+
+/* プレビュー + 置換ボタンのグループ */
+.mdv-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
 /* ツールバーが見つからない場合のフォールバック配置 */
+.mdv-btn-group.mdv-floating,
 .mdv-preview-btn.mdv-floating {
   position: absolute;
   top: 6px;
   right: 6px;
   z-index: 10;
+}
+
+/* 裸の pre をラップして浮きボタンの基準位置にする */
+.mdv-pre-wrap {
+  position: relative;
+}
+
+/* インライン置換中の元コード */
+.mdv-hidden {
+  display: none !important;
 }
